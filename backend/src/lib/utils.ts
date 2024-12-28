@@ -6,7 +6,7 @@ export const generateToken = (userID: string, res: Response) => {
     expiresIn: '7d'
   })
 
-  res.cookie('JWT_CHAT', token, {
+  res.cookie(process.env.JWT_TOKEN_NAME, token, {
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days in milliseconds
     httpOnly: true, // Prevent XSS attacks (cross-site scripting)
     sameSite: 'strict', // Ensure cookies are not sent with cross-site requests
