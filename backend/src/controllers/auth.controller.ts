@@ -4,15 +4,26 @@ import User from '../models/user.model'
 import { generateToken } from '../lib/utils'
 import cloudinary from '../lib/cloudinary'
 
+/**
+ * Creates a new user account
+ * @param req Express Request object containing:
+ *        - body.fullName: User's full name
+ *        - body.email: User's email
+ *        - body.password: User's password (min 8 characters)
+ * @param res Express Response object
+ * @returns Created user's ID and success message
+ * @throws 400 if missing fields, invalid password length, or email exists
+ * @throws 500 if server error occurs
+ */
 export const signup = async (req: Request, res: Response) => {
   const { fullName, email, password } = req.body
   try {
     if (!fullName || !email || !password) {
-      return res.status(400).json({ message: 'Missing required fields' })
+      res.status(400).json({ message: 'Missing required fields' })
     }
 
     if (password.length < 8) {
-      return res
+      res
         .status(400)
         .json({ message: 'Password must be at least 8 characters' })
     }
@@ -20,7 +31,7 @@ export const signup = async (req: Request, res: Response) => {
     const user = await User.findOne({ email })
 
     if (user) {
-      return res.status(400).json({ message: 'Email already exists' })
+      res.status(400).json({ message: 'Email already exists' })
     }
 
     const salt = await bcrypt.genSalt()
@@ -35,33 +46,43 @@ export const signup = async (req: Request, res: Response) => {
     if (newUser) {
       generateToken(newUser._id.toString(), res)
       await newUser.save()
-      return res.status(201).json({ _id: newUser._id, message: 'User created' })
+      res.status(201).json({ _id: newUser._id, message: 'User created' })
     } else {
-      return res.status(400).json({ message: 'Invalid user data' })
+      res.status(400).json({ message: 'Invalid user data' })
     }
   } catch (err) {
     console.log(`Error in signup controller ${err.message}`)
-    return res.status(500).json({ message: 'Internal server error' })
+    res.status(500).json({ message: 'Internal server error' })
   }
 }
 
+/**
+ * Authenticates user and creates session
+ * @param req Express Request object containing:
+ *        - body.email: User's email
+ *        - body.password: User's password
+ * @param res Express Response object
+ * @returns User data and success message
+ * @throws 400 if invalid credentials
+ * @throws 500 if server error occurs
+ */
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body
   try {
     const user = await User.findOne({ email })
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' })
+      res.status(400).json({ message: 'Invalid credentials' })
     }
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password)
     if (!isPasswordCorrect) {
-      return res.status(400).json({ message: 'Invalid credentials' })
+      res.status(400).json({ message: 'Invalid credentials' })
     }
 
     generateToken(user._id.toString(), res)
 
-    return res.status(200).json({
+    res.status(200).json({
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
@@ -69,10 +90,17 @@ export const login = async (req: Request, res: Response) => {
     })
   } catch (err) {
     console.log(`Error in login controller ${err.message}`)
-    return res.status(500).json({ message: 'Internal server error' })
+    res.status(500).json({ message: 'Internal server error' })
   }
 }
 
+/**
+ * Logs out user by clearing auth cookie
+ * @param _ Express Request object (unused)
+ * @param res Express Response object
+ * @returns Success message
+ * @throws 500 if server error occurs
+ */
 export const logout = (_: Request, res: Response) => {
   try {
     res.cookie(process.env.JWT_TOKEN_NAME, '', {
@@ -85,13 +113,23 @@ export const logout = (_: Request, res: Response) => {
   }
 }
 
+/**
+ * Updates user's profile picture
+ * @param req Express Request object containing:
+ *        - body.profilePic: Base64 encoded image
+ *        - user._id: Authenticated user's ID
+ * @param res Express Response object
+ * @returns Updated user object
+ * @throws 400 if profile picture is missing
+ * @throws 500 if server error occurs
+ */
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const { profilePic } = req.body
     const userID = req.user._id.toString()
 
     if (!profilePic) {
-      return res.status(400).json({ message: 'Profile picture is required' })
+      res.status(400).json({ message: 'Profile picture is required' })
     }
 
     const uploadResponse = await cloudinary.uploader.upload(profilePic)
@@ -111,6 +149,13 @@ export const updateProfile = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Verifies user authentication status
+ * @param req Express Request object containing authenticated user data
+ * @param res Express Response object
+ * @returns User object if authenticated
+ * @throws 500 if server error occurs
+ */
 export const check = (req: Request, res: Response) => {
   try {
     res.status(200).json(req.user)
